@@ -1,0 +1,196 @@
+---
+title: "p8105_hw3_yg2762"
+author: "Yang Gao"
+date: "10/16/2021"
+output: github_document
+---
+
+```{r}
+library(tidyverse)
+library(p8105.datasets)
+library(patchwork)
+
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+```
+
+# Problem 1
+load `instacart` dataset
+```{r}
+data("instacart")
+```
+
+```{r}
+instacart %>% 
+  group_by (aisle_id) %>% 
+  summarise(n_obs = n()) %>% 
+  mutate(aisle_rank = min_rank(n_obs)) %>% 
+  arrange(desc(aisle_rank)) %>% 
+  
+  filter(n_obs > 10000) %>%
+  ggplot(aes(x=aisle_id, y=n_obs)) + geom_point() + geom_line() +
+  labs(
+    title = "number of items ordered by aisle",
+    x = "aisle_id",
+    y = "number of items ordered") +
+  scale_x_continuous(
+    breaks = seq(0, 134, by=10))
+```
+
+```{r}
+instacart %>% 
+  filter (aisle == c("baking ingredients", "dog food care", "packaged vegetables fruits")) %>% 
+  group_by (aisle, product_name) %>% 
+  summarise(number_of_order= n()) %>% 
+  filter(min_rank(desc(number_of_order)) < 4) %>% 
+  knitr::kable()
+```
+
+
+```{r}
+instacart %>% 
+  select(order_dow, order_hour_of_day,product_name) %>% 
+  filter (product_name == c("Pink Lady Apples", "Coffee Ice Cream")) %>% 
+  group_by(product_name, order_dow) %>% 
+  summarise(mean_hour = mean(order_hour_of_day)) %>% 
+  
+  mutate(t_day_number = order_dow +1) %>% 
+  mutate(order_dow = lubridate :: wday(t_day_number, label = TRUE)) %>% 
+  select(-t_day_number) %>% 
+  
+  pivot_wider(
+    names_from = order_dow,
+    values_from = mean_hour
+  ) %>% 
+knitr::kable()
+```
+There are 134 aisles in total, and users ordered the most items from aisle 83. 
+
+
+# Problem 2
+load the data
+```{r}
+data("brfss_smart2010")
+```
+
+```{r}
+tidy_brfss =
+  brfss_smart2010 %>% 
+  janitor :: clean_names() %>% 
+  filter(topic == "Overall Health") %>% 
+  mutate(response = forcats::fct_relevel(response, c("Poor", "Fair", "Good", "Very good", "Excellent"))) 
+```
+
+```{r}
+tidy_brfss %>% 
+  select(year, locationabbr,locationdesc, response, data_value) %>% 
+  pivot_wider(
+    names_from = response,
+    values_from = data_value
+  ) %>% 
+  
+  filter(year == 2002) %>% 
+  group_by(locationabbr) %>% 
+  summarize(locations = n()) %>% 
+  filter(locations >= 7) %>% 
+knitr::kable()
+```
+
+```{r}
+tidy_brfss %>% 
+  select(year, locationabbr,locationdesc, response, data_value) %>% 
+  pivot_wider(
+    names_from = response,
+    values_from = data_value
+  ) %>% 
+filter(year == 2010) %>% 
+  group_by(locationabbr) %>% 
+  summarize(locations = n()) %>% 
+  filter(locations >= 7) %>% 
+knitr::kable()
+```
+
+
+
+```{r}
+average_value =
+ tidy_brfss %>% 
+  filter (response =="Excellent") %>% 
+  select(year,data_value, locationabbr, locationdesc) %>% 
+  group_by (locationabbr, year) %>% 
+  summarise(mean_data_value = mean(data_value))
+
+ggplot(average_value, aes(x = year, y = mean_data_value), alpha=0.5) +geom_line(aes(group = locationabbr))
+  
+```
+
+
+```{r}
+response2006 = 
+tidy_brfss %>% 
+  filter(locationabbr =="NY", year== 2006) 
+  ggplot(response2006, aes(y=data_value, x=response)) + geom_boxplot() +
+   theme(legend.position = "none")
+
+
+response2010 = 
+tidy_brfss %>% 
+  filter(locationabbr =="NY", year== 2010) 
+  ggplot(response2010, aes(y=data_value, x=response)) + geom_boxplot() +
+    theme(legend.position = "none")
+
+
+  
+```
+ 
+
+# Problem 3
+```{r}
+accel_df = read_csv("./accel_data.csv") %>% 
+  janitor :: clean_names()
+```
+```{r}
+accel_df %>% 
+  mutate(day = forcats::fct_relevel(day, c("Sunday","Monday", "Tuesday", "Wednesday", "Thursday", "Friday","Saturday" ))) %>% 
+  arrange (week,day) %>% 
+  relocate(day_id, week, day) %>% 
+  mutate(total_activity = select(., activity_1:activity_1440) %>% 
+  rowSums()) %>% 
+  select(week, day, total_activity) %>% 
+  pivot_wider(
+    names_from = day,
+    values_from =total_activity
+  ) 
+  
+```
+
+
+
+```{r}
+accel_df %>% 
+  select(-day_id) %>% 
+  pivot_longer(
+    activity_1:activity_1440,
+    names_to = "time",
+    names_prefix = "activity_",
+    values_to ="activity"
+  ) %>% 
+  
+ggplot(aes(x = as.numeric(time), color = day)) + geom_histogram()+
+  facet_grid(.~ day)
+```
+
+
+
+
+  
+
+
+
+
+
+
