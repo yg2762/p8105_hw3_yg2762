@@ -12,24 +12,28 @@ library(patchwork)
 
 
 knitr::opts_chunk$set(
-  fig.width = 6,
-  fig.asp = .6,
+  fig.width = 8,
+  fig.asp = .8,
   out.width = "90%"
 )
 ```
 
-# Problem 1
-load `instacart` dataset
+# Problem 1 
+load `instacart` dataset.
+
 ```{r}
 data("instacart")
+names(instacart)
+head(instacart,5)
 ```
+The dataset contains 1384617 obs of 15 variables. Each row in the dataset is a product from an order, and each variable (column) in the dataset is a characteristic of a product such as product name, order day/time and aisle of the product. etc.
+
 
 ```{r}
 instacart %>% 
   group_by (aisle_id) %>% 
-  summarise(n_obs = n()) %>% 
-  mutate(aisle_rank = min_rank(n_obs)) %>% 
-  arrange(desc(aisle_rank)) %>% 
+  summarise(n_obs = n()) %>% #Total 134 aisles
+  arrange(desc(n_obs))%>% # Most popular aisle is 83, 120609 products sold from there
   
   filter(n_obs > 10000) %>%
   ggplot(aes(x=aisle_id, y=n_obs)) + geom_point() + geom_line() +
@@ -41,7 +45,11 @@ instacart %>%
     breaks = seq(0, 134, by=10))
 ```
 
-```{r}
+
+There are 134 aisles in total, and users ordered the most items from aisle 83. The plot shows the number of items ordered in aisle with more than 10000 items ordered. 
+
+
+```{r, warning = FALSE}
 instacart %>% 
   filter (aisle == c("baking ingredients", "dog food care", "packaged vegetables fruits")) %>% 
   group_by (aisle, product_name) %>% 
@@ -50,10 +58,11 @@ instacart %>%
   knitr::kable()
 ```
 
+The table above shows three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits” with number of times each product be ordered.
 
-```{r}
+
+```{r,warning = FALSE}
 instacart %>% 
-  select(order_dow, order_hour_of_day,product_name) %>% 
   filter (product_name == c("Pink Lady Apples", "Coffee Ice Cream")) %>% 
   group_by(product_name, order_dow) %>% 
   summarise(mean_hour = mean(order_hour_of_day)) %>% 
@@ -66,9 +75,11 @@ instacart %>%
     names_from = order_dow,
     values_from = mean_hour
   ) %>% 
-knitr::kable()
+knitr::kable(digits = 0)
 ```
-There are 134 aisles in total, and users ordered the most items from aisle 83. 
+
+
+The table above shows the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week.
 
 
 # Problem 2
@@ -76,14 +87,18 @@ load the data
 ```{r}
 data("brfss_smart2010")
 ```
-
+Tidy data
 ```{r}
 tidy_brfss =
   brfss_smart2010 %>% 
-  janitor :: clean_names() %>% 
-  filter(topic == "Overall Health") %>% 
-  mutate(response = forcats::fct_relevel(response, c("Poor", "Fair", "Good", "Very good", "Excellent"))) 
+  janitor :: clean_names() %>% # use appropriate variable names
+  filter(topic == "Overall Health") %>% # focus on the “Overall Health” topic
+  
+  mutate(response = forcats::fct_relevel(response, c("Poor", "Fair", "Good", "Very good", "Excellent")))
+  # organize responses as a factor taking levels ordered from “Poor” to “Excellent”
 ```
+
+After cleaning, the dataset contains 10625 observations with 23 variables.
 
 ```{r}
 tidy_brfss %>% 
@@ -100,6 +115,8 @@ tidy_brfss %>%
 knitr::kable()
 ```
 
+In 2002, CT,FL,MA,NC,NJ,PA were observed at 7 or more locations.
+
 ```{r}
 tidy_brfss %>% 
   select(year, locationabbr,locationdesc, response, data_value) %>% 
@@ -114,6 +131,7 @@ filter(year == 2010) %>%
 knitr::kable()
 ```
 
+In 2010, CA,CO,FL,MA,MD, NC,NE,NJ,NY,OH,PA,SC,TX,WA were observed at 7 or more locations.
 
 
 ```{r}
@@ -124,50 +142,63 @@ average_value =
   group_by (locationabbr, year) %>% 
   summarise(mean_data_value = mean(data_value))
 
-ggplot(average_value, aes(x = year, y = mean_data_value), alpha=0.5) +geom_line(aes(group = locationabbr))
-  
+ggplot(average_value, aes(x = year, y = mean_data_value)) +
+  geom_line(aes(group = locationabbr), alpha=0.5) +
+  scale_x_continuous(breaks = seq(2002, 2010, by=1))
 ```
+
+A “spaghetti” plot of average data value over time within a state (that is, make a plot showing a line for each state across years).Each line is one state in the plot.
 
 
 ```{r}
 response2006 = 
 tidy_brfss %>% 
-  filter(locationabbr =="NY", year== 2006) 
-  ggplot(response2006, aes(y=data_value, x=response)) + geom_boxplot() +
-   theme(legend.position = "none")
+  filter(locationabbr =="NY", year== 2006) %>% 
+  ggplot( aes(x = data_value, fill = response)) + 
+  geom_density(alpha = .4) +
+  theme(legend.position = "bottom") + 
+   labs(title = "NY 2006")
+
+  #ggplot(aes(y=data_value, x=response)) + geom_point() 
 
 
 response2010 = 
 tidy_brfss %>% 
-  filter(locationabbr =="NY", year== 2010) 
-  ggplot(response2010, aes(y=data_value, x=response)) + geom_boxplot() +
-    theme(legend.position = "none")
+  filter(locationabbr =="NY", year== 2010) %>% 
+   ggplot( aes(x = data_value, fill = response)) + 
+   geom_density(alpha = .4) +
+   theme(legend.position = "none") +
+   labs(title = "NY 2010")
+ # ggplot(aes(y=data_value, x=response)) + geom_boxplot() 
 
-
-  
+response2006+response2010
 ```
- 
+
+A two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
+
 
 # Problem 3
+load the data and tidy data
 ```{r}
 accel_df = read_csv("./accel_data.csv") %>% 
-  janitor :: clean_names()
-```
-```{r}
-accel_df %>% 
+  janitor :: clean_names() %>% 
   mutate(day = forcats::fct_relevel(day, c("Sunday","Monday", "Tuesday", "Wednesday", "Thursday", "Friday","Saturday" ))) %>% 
   arrange (week,day) %>% 
-  relocate(day_id, week, day) %>% 
-  mutate(total_activity = select(., activity_1:activity_1440) %>% 
-  rowSums()) %>% 
-  select(week, day, total_activity) %>% 
-  pivot_wider(
-    names_from = day,
-    values_from =total_activity
-  ) 
-  
-```
+  relocate(day_id, week, day) 
 
+```
+The dataset has 35 observations of 1443 variables. Each row is one day, and column `activity_1:activity_1440` counts for each minute of a 24-hour day starting at midnight.
+
+```{r}
+accel_df %>% 
+   mutate(total_activity = select(., activity_1:activity_1440) %>% rowSums()) %>% 
+   select(week, day, total_activity) %>% 
+   pivot_wider(
+    names_from = day,
+    values_from =total_activity) %>% 
+knitr::kable(digits = 0)
+```
+The table shows total actvity for each day. 
 
 
 ```{r}
@@ -179,11 +210,19 @@ accel_df %>%
     names_prefix = "activity_",
     values_to ="activity"
   ) %>% 
+
+ggplot(aes(x = as.numeric(time), y= activity, color = day)) + geom_line(alpha = 0.6) +
+  labs(
+    title = "Inspection activity over the course of the day",
+    x = "Time of a day",
+    y = "Activity over course of a day") +
+  scale_x_continuous (breaks = seq(0,1440, by=60),
+                      labels = 0:24)
   
-ggplot(aes(x = as.numeric(time), color = day)) + geom_histogram()+
-  facet_grid(.~ day)
 ```
 
+
+According to the 24-hour activity time courses for each day, this person have relative high activity at in the morning (9am to 12pm) and 8-10 pm during the day.
 
 
 
