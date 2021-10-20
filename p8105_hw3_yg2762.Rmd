@@ -9,13 +9,6 @@ output: github_document
 library(tidyverse)
 library(p8105.datasets)
 library(patchwork)
-
-
-knitr::opts_chunk$set(
-  fig.width = 8,
-  fig.asp = .8,
-  out.width = "90%"
-)
 ```
 
 # Problem 1 
@@ -31,27 +24,26 @@ The dataset contains 1384617 obs of 15 variables. Each row in the dataset is a p
 
 ```{r}
 instacart %>% 
-  group_by (aisle_id) %>% 
+  group_by (aisle) %>% 
   summarise(n_obs = n()) %>% #Total 134 aisles
-  arrange(desc(n_obs))%>% # Most popular aisle is 83, 120609 products sold from there
+  arrange(desc(n_obs)) %>% # Most popular aisle is “fresh vegetables", 120609 products sold from there
   
   filter(n_obs > 10000) %>%
-  ggplot(aes(x=aisle_id, y=n_obs)) + geom_point() + geom_line() +
+  arrange(n_obs) %>% 
+  ggplot(aes(x = reorder(aisle,-n_obs), y=n_obs)) + geom_point() + 
+  theme_minimal() + theme(axis.text.x = element_text (angle=90)) +
   labs(
     title = "number of items ordered by aisle",
-    x = "aisle_id",
-    y = "number of items ordered") +
-  scale_x_continuous(
-    breaks = seq(0, 134, by=10))
+    x = "aisle",
+    y = "number of items ordered") 
 ```
 
-
-There are 134 aisles in total, and users ordered the most items from aisle 83. The plot shows the number of items ordered in aisle with more than 10000 items ordered. 
+There are 134 aisles in total, and users ordered the most items from aisle 83 that is “fresh vegetables". The plot shows the number of items ordered in aisle with more than 10000 items ordered. 
 
 
 ```{r, warning = FALSE}
 instacart %>% 
-  filter (aisle == c("baking ingredients", "dog food care", "packaged vegetables fruits")) %>% 
+  filter (aisle %in% c("baking ingredients", "dog food care", "packaged vegetables fruits")) %>% 
   group_by (aisle, product_name) %>% 
   summarise(number_of_order= n()) %>% 
   filter(min_rank(desc(number_of_order)) < 4) %>% 
@@ -63,9 +55,10 @@ The table above shows three most popular items in each of the aisles “baking i
 
 ```{r,warning = FALSE}
 instacart %>% 
-  filter (product_name == c("Pink Lady Apples", "Coffee Ice Cream")) %>% 
+  filter (product_name %in% c("Pink Lady Apples", "Coffee Ice Cream")) %>% 
   group_by(product_name, order_dow) %>% 
-  summarise(mean_hour = mean(order_hour_of_day)) %>% 
+  summarise(mean_hour = mean(order_hour_of_day, na.rm = TRUE)) %>% 
+
   
   mutate(t_day_number = order_dow +1) %>% 
   mutate(order_dow = lubridate :: wday(t_day_number, label = TRUE)) %>% 
@@ -77,8 +70,6 @@ instacart %>%
   ) %>% 
 knitr::kable(digits = 0)
 ```
-
-
 The table above shows the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week.
 
 
@@ -93,7 +84,7 @@ tidy_brfss =
   brfss_smart2010 %>% 
   janitor :: clean_names() %>% # use appropriate variable names
   filter(topic == "Overall Health") %>% # focus on the “Overall Health” topic
-  
+  mutate(response %in% c("Poor", "Fair", "Good", "Very good", "Excellent")) %>% 
   mutate(response = forcats::fct_relevel(response, c("Poor", "Fair", "Good", "Very good", "Excellent")))
   # organize responses as a factor taking levels ordered from “Poor” to “Excellent”
 ```
@@ -143,7 +134,7 @@ average_value =
   summarise(mean_data_value = mean(data_value))
 
 ggplot(average_value, aes(x = year, y = mean_data_value)) +
-  geom_line(aes(group = locationabbr), alpha=0.5) +
+  geom_line(aes(group = locationabbr, color = locationabbr), alpha=0.8) +
   scale_x_continuous(breaks = seq(2002, 2010, by=1))
 ```
 
@@ -156,22 +147,16 @@ tidy_brfss %>%
   filter(locationabbr =="NY", year== 2006) %>% 
   ggplot( aes(x = data_value, fill = response)) + 
   geom_density(alpha = .4) +
-  theme(legend.position = "bottom") + 
    labs(title = "NY 2006")
-
-  #ggplot(aes(y=data_value, x=response)) + geom_point() 
-
 
 response2010 = 
 tidy_brfss %>% 
   filter(locationabbr =="NY", year== 2010) %>% 
    ggplot( aes(x = data_value, fill = response)) + 
    geom_density(alpha = .4) +
-   theme(legend.position = "none") +
    labs(title = "NY 2010")
- # ggplot(aes(y=data_value, x=response)) + geom_boxplot() 
 
-response2006+response2010
+response2006/response2010
 ```
 
 A two-panel plot showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
@@ -183,22 +168,23 @@ load the data and tidy data
 accel_df = read_csv("./accel_data.csv") %>% 
   janitor :: clean_names() %>% 
   mutate(day = forcats::fct_relevel(day, c("Sunday","Monday", "Tuesday", "Wednesday", "Thursday", "Friday","Saturday" ))) %>% 
+  mutate(weekday_vs_weekend = if_else(day %in% c("Saturday", "Sunday"),0,1))%>% 
   arrange (week,day) %>% 
-  relocate(day_id, week, day) 
+  relocate(day_id, week, day,weekday_vs_weekend) 
 
 ```
-The dataset has 35 observations of 1443 variables. Each row is one day, and column `activity_1:activity_1440` counts for each minute of a 24-hour day starting at midnight.
+The dataset has 35 observations of 1444 variables. Each row is one day, and column `activity_1:activity_1440` counts for each minute of a 24-hour day starting at midnight.I created `weekday_vs_weekend` variable to indicate whether the day is weekday or weekend.
 
 ```{r}
 accel_df %>% 
    mutate(total_activity = select(., activity_1:activity_1440) %>% rowSums()) %>% 
-   select(week, day, total_activity) %>% 
+   select(week,day, total_activity) %>% 
    pivot_wider(
     names_from = day,
     values_from =total_activity) %>% 
 knitr::kable(digits = 0)
 ```
-The table shows total actvity for each day. 
+The table shows total activity for each day. The highest or the lowest activity of the week are more likely to appear on weekends.
 
 
 ```{r}
@@ -220,7 +206,6 @@ ggplot(aes(x = as.numeric(time), y= activity, color = day)) + geom_line(alpha = 
                       labels = 0:24)
   
 ```
-
 
 According to the 24-hour activity time courses for each day, this person have relative high activity at in the morning (9am to 12pm) and 8-10 pm during the day.
 
